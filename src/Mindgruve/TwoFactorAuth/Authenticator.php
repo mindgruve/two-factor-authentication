@@ -95,7 +95,7 @@ class Authenticator
      * @param int $delta
      * @return bool
      */
-    public function verifyToken($base32EncodedSecret, $token, $delta = 1 ,$time = null)
+    public function verifyToken($base32EncodedSecret, $token, $delta = 1, $time = null)
     {
         for ($i = -$delta; $i <= $delta; $i++) {
             $calculatedCode = $this->generateToken($base32EncodedSecret, $time, $i);
@@ -120,5 +120,15 @@ class Authenticator
         }
 
         return floor(($time - $this->t0) / $this->interval);
+    }
+
+    public function getGoogleQRCodeUrl($name, $base32EncodedSecret, $title = null, $height = 200, $width = 200)
+    {
+        $urlencoded = urlencode('otpauth://totp/' . $name . '?secret=' . $base32EncodedSecret . '');
+        if (isset($title)) {
+            $urlencoded .= urlencode('&issuer=' . urlencode($title));
+        }
+
+        return 'https://chart.googleapis.com/chart?chs=200x200&chld=M|0&cht=qr&chl=' . $urlencoded . '';
     }
 }
