@@ -26,7 +26,11 @@ class Authenticator
      */
     protected $tokenLength;
 
-    protected $alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567=';
+    /**
+     * @var bool
+     */
+    protected $base32EncodeSecret;
+
 
     /**
      * $t0 is the Epoch
@@ -38,13 +42,15 @@ class Authenticator
      * @param int $interval
      * @param string $algo
      * @param int $tokenLength
+     * @param bool $base32EncodeSecret
      */
-    public function __construct($t0 = 0, $interval = 30, $algo = 'SHA1', $tokenLength = 6)
+    public function __construct($t0 = 0, $interval = 30, $algo = 'SHA1', $tokenLength = 6, $base32EncodeSecret = true)
     {
         $this->t0 = 0;
         $this->interval = $interval;
         $this->algo = $algo;
         $this->tokenLength = $tokenLength;
+        $this->base32EncodeSecret = $base32EncodeSecret;
     }
 
 
@@ -61,22 +67,28 @@ class Authenticator
         if ($length < 16) {
             throw new RFCException('The secret should be at least 16 characters long (128 bits) .');
         }
-        $rand = openssl_random_pseudo_bytes($length);
+        $return = openssl_random_pseudo_bytes($length);
 
-        return Base32::encode($rand);
+        if ($this->base32EncodeSecret) {
+            $return = Base32::encode($return);
+        }
+
+        return $return;
     }
 
     /**
      * Generate a token
      *
-     * @param $base32EncodedSecret
+     * @param $secret
      * @param null $time
      * @param int $timeStepOffset
      * @return string
      */
-    public function generateToken($base32EncodedSecret, $time = null, $timeStepOffset = 0)
+    public function generateToken($secret, $time = null, $timeStepOffset = 0)
     {
-        $secret = Base32::decode($base32EncodedSecret);
+        if ($this->base32EncodeSecret) {
+            $secret = Base32::decode($secret);
+        }
         $time = chr(0) . chr(0) . chr(0) . chr(0) . pack('N*', $this->getTimeStep($time) + $timeStepOffset);
         $hm = hash_hmac($this->algo, $time, $secret, true);
         $offset = ord(substr($hm, -1)) & 0x0F;
@@ -92,16 +104,16 @@ class Authenticator
     /**
      * Verify a token
      *
-     * @param $base32EncodedSecret
+     * @param $secret
      * @param $token
      * @param null $time
      * @param int $delta
      * @return bool
      */
-    public function verifyToken($base32EncodedSecret, $token, $delta = 1, $time = null)
+    public function verifyToken($secret, $token, $delta = 1, $time = null)
     {
         for ($i = -$delta; $i <= $delta; $i++) {
-            $calculatedCode = $this->generateToken($base32EncodedSecret, $time, $i);
+            $calculatedCode = $this->generateToken($secret, $time, $i);
             if ($calculatedCode == $token) {
                 return true;
             }
@@ -125,6 +137,16 @@ class Authenticator
         return floor(($time - $this->t0) / $this->interval);
     }
 
+    /**
+     * Get URL to QR Code
+     *
+     * @param $name
+     * @param $base32EncodedSecret
+     * @param null $title
+     * @param int $height
+     * @param int $width
+     * @return string
+     */
     public function getGoogleQRCodeUrl($name, $base32EncodedSecret, $title = null, $height = 200, $width = 200)
     {
         $urlencoded = urlencode('otpauth://totp/' . $name . '?secret=' . $base32EncodedSecret . '');
@@ -132,6 +154,6 @@ class Authenticator
             $urlencoded .= urlencode('&issuer=' . urlencode($title));
         }
 
-        return 'https://chart.googleapis.com/chart?chs=200x200&chld=M|0&cht=qr&chl=' . $urlencoded . '';
+        return 'https://chart.googleapis.com/chart?chs=' . $width . 'x' . $height . '&chld=M|0&cht=qr&chl=' . $urlencoded . '';
     }
 }
