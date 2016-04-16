@@ -57,16 +57,13 @@ class Authenticator
      */
     public function generateSecret($length = 20)
     {
+
         if ($length < 16) {
             throw new RFCException('The secret should be at least 16 characters long (128 bits) .');
         }
+        $rand = openssl_random_pseudo_bytes($length);
 
-        $return = '';
-        for ($i = 0; $i < $length; $i++) {
-            $return .= $this->alphabet[rand(0, 31)];
-        }
-
-        return $return;
+        return Base32::encode($rand);
     }
 
     /**
