@@ -26,6 +26,8 @@ class Authenticator
      */
     protected $tokenLength;
 
+    protected $alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567=';
+
     /**
      * $t0 is the Epoch
      * $interval is the interval (ex 30 seconds)
@@ -53,14 +55,18 @@ class Authenticator
      * @return string
      * @throws RFCException
      */
-    public function createSecret($length = 20)
+    public function generateSecret($length = 20)
     {
         if ($length < 16) {
             throw new RFCException('The secret should be at least 16 characters long (128 bits) .');
         }
-        $rand = openssl_random_pseudo_bytes($length);
 
-        return Base32::encode($rand);
+        $return = '';
+        for ($i = 0; $i < $length; $i++) {
+            $return .= $this->alphabet[rand(0, 31)];
+        }
+
+        return $return;
     }
 
     /**
@@ -77,8 +83,8 @@ class Authenticator
         $time = chr(0) . chr(0) . chr(0) . chr(0) . pack('N*', $this->getTimeStep($time) + $timeStepOffset);
         $hm = hash_hmac($this->algo, $time, $secret, true);
         $offset = ord(substr($hm, -1)) & 0x0F;
-        $hashpart = substr($hm, $offset, 4);
-        $value = unpack('N', $hashpart);
+        $sub = substr($hm, $offset, 4);
+        $value = unpack('N', $sub);
         $value = $value[1];
         $value = $value & 0x7FFFFFFF;
         $modulo = pow(10, $this->tokenLength);
