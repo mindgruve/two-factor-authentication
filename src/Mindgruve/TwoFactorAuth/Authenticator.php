@@ -83,7 +83,9 @@ class Authenticator
             /**
              * Check only for this time step
              */
-            if ($this->generateToken($secret, $interval, $tokenLength, $timestamp, 0) == $token->getValue()) {
+            $generatedToken = $this->generateToken($secret, $interval, $tokenLength, $timestamp, 0);
+            if ($generatedToken->getValue() == $token->getValue()
+            ) {
                 return true;
             }
 
@@ -92,7 +94,8 @@ class Authenticator
              * Check each of the deltas
              */
             for ($i = -$delta; $i <= $delta; $i++) {
-                if ($this->generateToken($secret, $interval, $tokenLength, $timestamp, $i) == $token->getValue()) {
+                $generatedToken = $this->generateToken($secret, $interval, $tokenLength, $timestamp, $i);
+                if ($generatedToken->getValue() == $token->getValue()) {
                     return true;
                 }
             }

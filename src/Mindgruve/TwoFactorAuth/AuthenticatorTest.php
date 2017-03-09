@@ -96,7 +96,60 @@ class AuthenticatorTest extends PHPUnit_Framework_TestCase
             0
         );
 
-        $this->assertTrue($sut->verifyToken($secret, $token));
+        $this->assertTrue(
+            $sut->verifyToken(
+                $secret,
+                $token,
+                Authenticator::DEFAULT_DELTA,
+                Authenticator::DEFAULT_INTERVAL,
+                Authenticator::DEFAULT_TOKEN_LENGTH,
+                0
+            )
+        );
+
+        /**
+         * Case #2
+         */
+        $token = $sut->generateToken(
+            $secret,
+            Authenticator::DEFAULT_INTERVAL,
+            Authenticator::DEFAULT_TOKEN_LENGTH,
+            40,
+            0
+        );
+
+        $this->assertTrue(
+            $sut->verifyToken(
+                $secret,
+                $token,
+                Authenticator::DEFAULT_DELTA,
+                Authenticator::DEFAULT_INTERVAL,
+                Authenticator::DEFAULT_TOKEN_LENGTH,
+                40
+            )
+        );
+
+        /**
+         * Case #3
+         */
+        $token = $sut->generateToken(
+            $secret,
+            Authenticator::DEFAULT_INTERVAL,
+            Authenticator::DEFAULT_TOKEN_LENGTH,
+            10,
+            1
+        );
+
+        $this->assertTrue(
+            $sut->verifyToken(
+                $secret,
+                $token,
+                Authenticator::DEFAULT_DELTA,
+                Authenticator::DEFAULT_INTERVAL,
+                Authenticator::DEFAULT_TOKEN_LENGTH,
+                40
+            )
+        );
     }
 
 }
