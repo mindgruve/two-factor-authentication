@@ -68,7 +68,7 @@ class Authenticator
      * @param null $timestamp
      * @return bool
      */
-    public function verifyToken(
+    public function isValidToken(
         Secret $secret,
         Token $token,
         $delta = self::DEFAULT_DELTA,

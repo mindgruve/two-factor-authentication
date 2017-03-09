@@ -97,7 +97,7 @@ class AuthenticatorTest extends PHPUnit_Framework_TestCase
         );
 
         $this->assertTrue(
-            $sut->verifyToken(
+            $sut->isValidToken(
                 $secret,
                 $token,
                 Authenticator::DEFAULT_DELTA,
@@ -119,7 +119,7 @@ class AuthenticatorTest extends PHPUnit_Framework_TestCase
         );
 
         $this->assertTrue(
-            $sut->verifyToken(
+            $sut->isValidToken(
                 $secret,
                 $token,
                 Authenticator::DEFAULT_DELTA,
@@ -141,7 +141,7 @@ class AuthenticatorTest extends PHPUnit_Framework_TestCase
         );
 
         $this->assertTrue(
-            $sut->verifyToken(
+            $sut->isValidToken(
                 $secret,
                 $token,
                 Authenticator::DEFAULT_DELTA,
