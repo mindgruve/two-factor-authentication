@@ -2,158 +2,102 @@
 
 namespace Mindgruve\TwoFactorAuth;
 
-use Base32\Base32;
-
 class Authenticator
 {
-    /**
-     * @var int
-     */
-    protected $t0;
+    const DEFAULT_INTERVAL = 30;
+    const DEFAULT_TOKEN_LENGTH = 6;
+    const DEFAULT_DELTA = 1;
 
     /**
-     * @var int
-     */
-    protected $interval;
-
-    /**
-     * @var string
-     */
-    protected $algo;
-
-    /**
-     * @var int
-     */
-    protected $tokenLength;
-
-    /**
-     * @var bool
-     */
-    protected $base32EncodeSecret;
-
-
-    /**
-     * $t0 is the Epoch
-     * $interval is the interval (ex 30 seconds)
-     * $algo is the cryptographic hash algorithm
-     * $tokenLength is the number of digits for the token
+     * Generate a one time use token
      *
-     * @param int $t0
+     * @param Secret $secret
      * @param int $interval
-     * @param string $algo
      * @param int $tokenLength
-     * @param bool $base32EncodeSecret
-     */
-    public function __construct($t0 = 0, $interval = 30, $algo = 'SHA1', $tokenLength = 6, $base32EncodeSecret = true)
-    {
-        $this->t0 = 0;
-        $this->interval = $interval;
-        $this->algo = $algo;
-        $this->tokenLength = $tokenLength;
-        $this->base32EncodeSecret = $base32EncodeSecret;
-    }
-
-
-    /**
-     * Generate a secret
-     *
-     * @param int $length
-     * @return string
-     * @throws RFCException
-     */
-    public function generateSecret($length = 20)
-    {
-
-        if ($length < 16) {
-            throw new RFCException('The secret should be at least 16 characters long (128 bits) .');
-        }
-        $return = openssl_random_pseudo_bytes($length);
-
-        if ($this->base32EncodeSecret) {
-            $return = Base32::encode($return);
-        }
-
-        return $return;
-    }
-
-    /**
-     * Generate a token
-     *
-     * @param $secret
-     * @param null $time
+     * @param null $timestamp
      * @param int $timeStepOffset
-     * @return string
+     * @return Token
      */
-    public function generateToken($secret, $time = null, $timeStepOffset = 0)
-    {
-        if ($this->base32EncodeSecret) {
-            $secret = Base32::decode($secret);
-        }
-        $time = chr(0) . chr(0) . chr(0) . chr(0) . pack('N*', $this->getTimeStep($time) + $timeStepOffset);
-        $hm = hash_hmac($this->algo, $time, $secret, true);
-        $offset = ord(substr($hm, -1)) & 0x0F;
-        $sub = substr($hm, $offset, 4);
-        $value = unpack('N', $sub);
-        $value = $value[1];
-        $value = $value & 0x7FFFFFFF;
-        $modulo = pow(10, $this->tokenLength);
+    public function generateToken(
+        Secret $secret,
+        $interval = self::DEFAULT_INTERVAL,
+        $tokenLength = self::DEFAULT_TOKEN_LENGTH,
+        $timestamp = null,
+        $timeStepOffset = 0
+    ) {
+        /**
+         * Calculate Timestamp
+         */
+        $timestamp = !is_null($timestamp) ? $timestamp : time();
 
-        return str_pad($value % $modulo, $this->tokenLength, '0', STR_PAD_LEFT);
+        /**
+         * Calculate TimeStep
+         */
+        $timeStep = floor(($timestamp) / $interval);
+
+        /**
+         * Generate Binary Time String
+         */
+        $binaryTimeString = chr(0).chr(0).chr(0).chr(0).pack('N*', $timeStep + $timeStepOffset);
+
+        /**
+         * Generate HOTP - https://en.wikipedia.org/wiki/HMAC-based_One-time_Password_Algorithm
+         */
+        $hash   = hash_hmac('SHA1', $binaryTimeString, $secret->asBinary(), true);
+        $offset = ord(substr($hash, -1)) & 0x0F;
+        $sub    = substr($hash, $offset, 4);
+        $value  = unpack('N', $sub);
+        $value  = $value[1];
+        $value  = $value & 0x7FFFFFFF;
+        $modulo = pow(10, $tokenLength);
+        $token  = str_pad($value % $modulo, $tokenLength, '0', STR_PAD_LEFT);
+
+        return new Token($token);
     }
 
     /**
-     * Verify a token
+     * Verify that a one time use token is valid
      *
-     * @param $secret
+     * Token will be valid if within this interval: time() ± delta * interval
+     *
+     * @param Secret $secret
      * @param $token
-     * @param null $time
      * @param int $delta
+     * @param int $interval
+     * @param int $tokenLength
+     * @param null $timestamp
      * @return bool
      */
-    public function verifyToken($secret, $token, $delta = 1, $time = null)
-    {
-        for ($i = -$delta; $i <= $delta; $i++) {
-            $calculatedCode = $this->generateToken($secret, $time, $i);
-            if ($calculatedCode == $token) {
+    public function verifyToken(
+        Secret $secret,
+        Token $token,
+        $delta = self::DEFAULT_DELTA,
+        $interval = self::DEFAULT_INTERVAL,
+        $tokenLength = self::DEFAULT_TOKEN_LENGTH,
+        $timestamp = null
+    ) {
+        /**
+         * Check Deltas
+         */
+        if ($delta == 0) {
+            /**
+             * Check only for this time step
+             */
+            if ($this->generateToken($secret, $interval, $tokenLength, $timestamp, 0) == $token->getValue()) {
                 return true;
+            }
+
+        } else {
+            /**
+             * Check each of the deltas
+             */
+            for ($i = -$delta; $i <= $delta; $i++) {
+                if ($this->generateToken($secret, $interval, $tokenLength, $timestamp, $i) == $token->getValue()) {
+                    return true;
+                }
             }
         }
 
         return false;
-    }
-
-    /**
-     * Get the current time step
-     *
-     * @param null $time
-     * @return float
-     */
-    public function getTimeStep($time = null)
-    {
-        if (is_null($time)) {
-            $time = time();
-        }
-
-        return floor(($time - $this->t0) / $this->interval);
-    }
-
-    /**
-     * Get URL to QR Code
-     *
-     * @param $name
-     * @param $base32EncodedSecret
-     * @param null $title
-     * @param int $height
-     * @param int $width
-     * @return string
-     */
-    public function getGoogleQRCodeUrl($name, $base32EncodedSecret, $title = null, $height = 200, $width = 200)
-    {
-        $urlencoded = urlencode('otpauth://totp/' . $name . '?secret=' . $base32EncodedSecret . '');
-        if (isset($title)) {
-            $urlencoded .= urlencode('&issuer=' . urlencode($title));
-        }
-
-        return 'https://chart.googleapis.com/chart?chs=' . $width . 'x' . $height . '&chld=M|0&cht=qr&chl=' . $urlencoded . '';
     }
 }
