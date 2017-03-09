@@ -5,7 +5,8 @@ This PHP Library implements TOTP algorithm popularized by GoogleAuthenticator.  
 The Time-Based One-Time Password Algorithm is described in RFC 26238 is located at https://tools.ietf.org/html/rfc6238
 
 ### Generating Secrets ###
-1) Have your users download the GoogleAuthenticator app to their smart phone.  Links to [Android Play Store](https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2&hl=en) and [Apple App Store](https://itunes.apple.com/us/app/google-authenticator/id388497605?mt=8)
+1) Have your users download the GoogleAuthenticator app to their smart phone.  Links to [Android Play Store](https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2&hl=en) and [Apple App Store](https://itunes.apple.com/us/app/google-authenticator/id388497605?mt=8)   
+
 2) Generate a Secret for each user and store it in your application
 
         use Mindgruve\TwoFactorAuth\Secret;
