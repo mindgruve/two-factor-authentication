@@ -51,5 +51,5 @@ When your user logs in, prompt the user for a token.  The user opens their Googl
          }
          
          
-### Running tests ###        
+### Running tests          
 php vendor/bin/phpunit src
